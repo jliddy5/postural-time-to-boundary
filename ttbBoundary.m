@@ -1,18 +1,17 @@
-function [mean_ttb, med_ttb, min_ttb] = ttbBoundary(ttb, n_min, plot_flag, labels)
-%TTBBOUNDARY Calculates Mean, Median, and Minimum TtB for each boundary.
+function [mean_ttb, med_ttb, min_ttb] = ttbBoundary(ttb_bound, n_min, plot_flag, labels)
+%TTBBOUNDARY Calculates mean, median, and minimum TtB for each boundary.
 %
 % ARGUMENTS
-% ttb - Time-to-Boundary for each boundary. This argument can either be an m
-% x 1 vector or an m x n matrix with TtB values for n boundaries where m is
-% the number of data points in the time series. This function was designed
-% to take the ttb_bound variable returned by the timeToBoundary function.
+% ttb_bound - Time-to-Boundary matrix for each boundary (n_samples x n_boundaries).
+% Each column contains the TtB time series for one boundary. This function
+% is designed to take the ttb_bound variable returned by the ttb function.
 % 
-% n_min - Number of minima to include in the estimation of min_ttb. The
-% default is 10% of the time series length.
+% n_min - Number of minima to include in the estimation of min_ttb (positive integer).
+% The default is 10% of the time series length.
 %
-% plot_flag - Boolean variable to request plots (0 = no plots, 1 = plots)
+% plot_flag - Boolean variable to request plots (0 = no plots, 1 = plots). Default is 0.
 %
-% labels - List of boundary labels for making plots.
+% labels - Cell array of boundary labels for making plots (required if plot_flag = 1).
 %
 % RETURNS
 % mean_ttb - Vector containing the mean TtB for each boundary (excluding
@@ -28,36 +27,54 @@ function [mean_ttb, med_ttb, min_ttb] = ttbBoundary(ttb, n_min, plot_flag, label
 %
 % ========================================================================%
 
-% Default plot setting is off
-if nargin == 2
-    plot_flag = 0;
+%% Validation
+arguments
+    ttb_bound (:,:) double {mustBeNumeric, mustBeNonempty}
+    n_min (1,1) double {mustBePositive, mustBeInteger} = NaN
+    plot_flag (1,1) {mustBeNumericOrLogical} = 0
+    labels (:,1) cell = {}
 end
 
-% Length of the time series and number of boundaries
-[n_samples, n_boundaries] = size(ttb);
+% Get dimensions
+[n_samples, n_boundaries] = size(ttb_bound);
 
-% Default number of minima is 10% of the time series length
-if nargin == 1
+% Set default n_min if not provided
+if isnan(n_min)
     n_min = round(0.1 * n_samples);
-    plot_flag = 0;
 end
 
-% Create mean, median, and minimum TtB vectors
+% Validate n_min is not larger than available data
+if n_min > n_samples
+    error('n_min (%d) cannot exceed the number of samples (%d).', n_min, n_samples);
+end
+
+% Validate labels if plotting
+if plot_flag && isempty(labels)
+    error('labels must be provided when plot_flag = 1.');
+end
+
+if plot_flag && length(labels) ~= n_boundaries
+    error('Number of labels (%d) must match number of boundaries (%d).', length(labels), n_boundaries);
+end
+
+%% Compute statistics
+
+% Preallocate output vectors
 mean_ttb = zeros(n_boundaries, 1);
 med_ttb = zeros(n_boundaries, 1);
 min_ttb = zeros(n_boundaries, 1);
 
 for i = 1:n_boundaries
-    mean_ttb(i, 1) = mean(ttb(:, i), 'omitnan');
-    med_ttb(i, 1) = median(ttb(ttb(:, i) > 0, i), 'omitnan');
-    min_ttb(i, 1) = ttbMinimum(ttb(:, i), n_min);
+    mean_ttb(i, 1) = mean(ttb_bound(:, i), 'omitnan');
+    med_ttb(i, 1) = median(ttb_bound(ttb_bound(:, i) > 0, i), 'omitnan');
+    min_ttb(i, 1) = ttbMinimum(ttb_bound(:, i), n_min);
 end
 
-% Make Plots =============================================================%
+%% Generate plots
 
 if plot_flag
     
-    % Mean TtB Bar Graph
+    % Mean TtB
     f = figure();
     theme(f, 'light');
     title('Mean TtB');
@@ -66,7 +83,7 @@ if plot_flag
     xlabel('Boundary');
     ylabel('Mean TtB (s)');
     
-    % Median TtB Bar Graph
+    % Median TtB
     f = figure();
     theme(f, 'light');
     title('Median TtB');
@@ -75,7 +92,7 @@ if plot_flag
     xlabel('Boundary');
     ylabel('Median TtB (s)');
     
-    % Minimum TtB Bar Graph
+    % Minimum TtB
     f = figure();
     theme(f, 'light');
     title('Minimum TtB');
