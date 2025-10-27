@@ -80,7 +80,7 @@ bound_labels = {'F', 'FR', 'BR', 'B', 'BL', 'FL'};
 % Sampling rate (Hz)
 fs = 120;
 
-% TtB method (1 = Riccio, 2 = Slobounov, 3 = Jerk)
+% TtB method (1 = Riccio, 2 = Slobounov)
 extrap_method = 2;
 
 % Compute TtB

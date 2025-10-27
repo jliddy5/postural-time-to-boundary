@@ -13,39 +13,30 @@ function [ttb, ttb_bound, bound_crossed, bound_percent] = ttb(r_x, r_y, dt, boun
 % need not begin with any particular coordinate. If there are n boundary points (and
 % therefore n boundaries) this matrix should be size n x 2 (minimum 3 points).
 %
-% extrap_method - Determines the method for estimating tau (1, 2, or 3).
+% extrap_method - Determines the method for estimating tau (1 or 2).
 %          The default method is Slobounov (method 2)
 %
 %     Method 1 (Riccio)
 %     Linear Equation:
-%     C * tau + D = 0
+%     A * tau + B = 0
 %     where tau = virtual time-to-boundary
-%       C = [v_y(t) - m_bound * v_x(t)]
-%       D = [(p_y(t) - y_bound) - m_bound * (p_x(t) - x_bound)]
+%       A = [v_y(t) - m_bound * v_x(t)]
+%       B = [(p_y(t) - y_bound) - m_bound * (p_x(t) - x_bound)]
 %     
 %     Method 2 (Slobounov)
 %     Quadratic Equation:
-%     B * tau^2 + C * tau + D = 0
+%     A * tau^2 + B * tau + C = 0
 %     where tau = virtual time-to-boundary
-%       B = [a_y(t) - m_bound * a_x(t)] / 2
-%       C = [v_y(t) - m_bound * v_x(t)]
-%       D = [(p_y(t) - y_bound) - m_bound * (p_x(t) - x_bound)]
-%     
-%     Method 3 (Jerk)
-%     Cubic Equation:
-%     A * tau^3 + B * tau^2 + C * tau + D = 0
-%     where tau = virtual time-to-boundary
-%       A = [j_y(t) - m_bound * j_x(t)] / 3
-%       B = [a_y(t) - m_bound * a_x(t)] / 2
-%       C = [v_y(t) - m_bound * v_x(t)]
-%       D = [(p_y(t) - y_bound) - m_bound * (p_x(t) - x_bound)]
+%       A = [a_y(t) - m_bound * a_x(t)] / 2
+%       B = [v_y(t) - m_bound * v_x(t)]
+%       C = [(p_y(t) - y_bound) - m_bound * (p_x(t) - x_bound)]
 %
 % RETURNS
 % ttb - Time series of minimum Time-to-Boundary in seconds. Minimum TtB is
 % determined by taking smallest of the positive, real roots to the
 % polynomial equations corresponding to the time it would take the
 % extrapolated CoP/CoM trajectory to reach a boundary based on the
-% instantaneous position, velocity, and higher-order derivatives.
+% instantaneous position, velocity, and acceleration.
 %
 % ttb_bound - Minimum Time-to-Boundary values for each boundary. The minimum
 % of the positive, real roots for each point in time is selected. If no
@@ -65,7 +56,7 @@ arguments
     r_y (:,1) double {mustBeNumeric, mustBeNonempty}
     dt (1,1) double {mustBePositive}
     bounds (:,2) double {mustBeNumeric}
-    extrap_method (1,1) double {mustBeMember(extrap_method, [1, 2, 3])} = 2
+    extrap_method (1,1) double {mustBeMember(extrap_method, [1, 2])} = 2
 end
 
 % Additional validation: r_x and r_y must be same length
@@ -87,10 +78,6 @@ v_y = gradient(r_y, dt);
 % Acceleration
 a_x = gradient(v_x, dt);
 a_y = gradient(v_y, dt);
-
-% Jerk
-j_x = gradient(a_x, dt);
-j_y = gradient(a_y, dt);
 
 %% Setup polynomial coefficients for each boundary
 
@@ -119,7 +106,6 @@ slope(isinf(slope)) = 1e16;
 coef_A = cell(n_boundaries, 1);
 coef_B = cell(n_boundaries, 1);
 coef_C = cell(n_boundaries, 1);
-coef_D = cell(n_boundaries, 1);
 
 % Polynomial matrix
 poly_coef = cell(n_boundaries, 1);
@@ -130,22 +116,20 @@ poly_roots = cell(n_boundaries, 1);
 % For each boundary, compute polynomial coefficients
 for i = 1:n_boundaries
     
-    % Determine polynomial coefficients (A, B, C, D)
-    coef_A{i} = (j_y - slope(i) .* j_x) ./ 3;
-    coef_B{i} = (a_y - slope(i) .* a_x) ./ 2;
-    coef_C{i} = (v_y - slope(i) .* v_x);
-    coef_D{i} = (r_y - y_bound(i)) - slope(i) .* (r_x - x_bound(i));
+    % Determine polynomial coefficients (A, B, C)
+    coef_A{i} = (a_y - slope(i) .* a_x) ./ 2;
+    coef_B{i} = (v_y - slope(i) .* v_x);
+    coef_C{i} = (r_y - y_bound(i)) - slope(i) .* (r_x - x_bound(i));
     
-    % Set unnecessary coefficients to 0 based on extrapolation method
+    % Set A coefficient to 0 for linear method (Method 1)
     if extrap_method == 1
-        coef_A{i} = zeros(n_samples, 1);
-        coef_B{i} = zeros(n_samples, 1);
-    elseif extrap_method == 2
         coef_A{i} = zeros(n_samples, 1);
     end
     
     % Create polynomial and root matrices
-    poly_coef{i} = [coef_A{i} coef_B{i} coef_C{i} coef_D{i}];
+    % For Method 1: [0 B C] → A·τ + B = 0 (linear)
+    % For Method 2: [A B C] → A·τ² + B·τ + C = 0 (quadratic)
+    poly_coef{i} = [coef_A{i} coef_B{i} coef_C{i}];
     poly_roots{i} = nan(n_samples, extrap_method);
     
 end
