@@ -86,9 +86,6 @@ extrap_method = 2;
 % Compute TtB
 [ttb, ttb_bound, bound_crossed, bound_percent] = ttb(cop_x, cop_y, 1/fs, bound_pts, extrap_method);
 
-% Plot subset of virtual trajectories to check that method is working
-plotVirtualTrajectory(cop_x, cop_y, 1/fs, x_bos, y_bos, ttb, extrap_method);
-
 % Plot TtB time series
 f = figure();
 theme(f, 'light');
