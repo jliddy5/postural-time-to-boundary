@@ -72,16 +72,16 @@ end
 % Compute velocity and higher order derivatives --------------------------%
 
 % Velocity
-v_x = cent_diff3(r_x, dt);
-v_y = cent_diff3(r_y, dt);
+v_x = gradient(r_x, dt);
+v_y = gradient(r_y, dt);
 
 % Acceleration
-a_x = cent_diff3(v_x, dt);
-a_y = cent_diff3(v_y, dt);
+a_x = gradient(v_x, dt);
+a_y = gradient(v_y, dt);
 
 % Jerk
-j_x = cent_diff3(a_x, dt);
-j_y = cent_diff3(a_y, dt);
+j_x = gradient(a_x, dt);
+j_y = gradient(a_y, dt);
 
 % Define slope (s), coordinates (x_b, y_b), and polynomial coefficients 
 % (A, B, C, D) for each boundary. ----------------------------------------%

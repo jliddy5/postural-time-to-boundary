@@ -104,4 +104,5 @@ ylabel('Probability density function');
 
 % Compute mean, median, and minimum TtC for each boundary.
 nMin = 50;
-[ mean_ttc, med_ttc, min_ttc ] = ttcBoundary(ttc_bound, nMin, extrapMethod, bound_labels);
+PLOT = 1; % Set to 1 to display plots, 0 to suppress
+[ mean_ttc, med_ttc, min_ttc ] = ttcBoundary(ttc_bound, nMin, PLOT, bound_labels);

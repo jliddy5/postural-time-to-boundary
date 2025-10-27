@@ -3,13 +3,13 @@ function [ ] = plotVirtualTrajectory( p_x, p_y, dt, x_bos, y_bos, ttc, extrapMet
 
 % Compute higher order derivatives ----------------------------------------%
 % Velocity
-v_x = cent_diff3(p_x, dt);
-v_y = cent_diff3(p_y, dt);
+v_x = gradient(p_x, dt);
+v_y = gradient(p_y, dt);
 
 % Acceleration
 if extrapMethod == 2 || extrapMethod == 3
-    a_x = cent_diff3(v_x, dt);
-    a_y = cent_diff3(v_y, dt);
+    a_x = gradient(v_x, dt);
+    a_y = gradient(v_y, dt);
 else 
     a_x = zeros(size(v_x));
     a_y = zeros(size(v_y));
@@ -17,8 +17,8 @@ end
 
 % Jerk
 if extrapMethod == 3
-    j_x = cent_diff3(a_x, dt);
-    j_y = cent_diff3(a_y, dt);
+    j_x = gradient(a_x, dt);
+    j_y = gradient(a_y, dt);
 else 
     j_x = zeros(size(v_x));
     j_y = zeros(size(v_y));
