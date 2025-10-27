@@ -1,19 +1,19 @@
-function [ttb, ttb_bound, bound_crossed, bound_percent] = timeToBoundary(r_x, r_y, dt, bounds, extrap_method)
-%TIMETOBOUNDARY Calculates Time-to-Boundary (tau)
+function [ttb, ttb_bound, bound_crossed, bound_percent] = ttb(r_x, r_y, dt, bounds, extrap_method)
+%TTB Calculates Time-to-Boundary (tau)
 %
 % ARGUMENTS
-% r_x - ML position of the center of pressure or center of mass
+% r_x - ML position of the center of pressure or center of mass (numeric vector)
 %
-% r_y - AP position of the center of pressure or center of mass
+% r_y - AP position of the center of pressure or center of mass (numeric vector)
 %
-% dt - Unit change in time between samples (1/fs)
+% dt - Unit change in time between samples (1/fs) (positive scalar)
 %
 % bounds - Matrix of boundary coordinates (x in the first column, y in the
 % second). Boundary coordinates should be entered in ordered clockwise, but
 % need not begin with any particular coordinate. If there are n boundary points (and
-% therefore n boundaries) this matrix should be size n x 2.
+% therefore n boundaries) this matrix should be size n x 2 (minimum 3 points).
 %
-% extrap_method - Determines the method for estimating tau. 
+% extrap_method - Determines the method for estimating tau (1, 2, or 3).
 %          The default method is Slobounov (method 2)
 %
 %     Method 1 (Riccio)
@@ -59,19 +59,26 @@ function [ttb, ttb_bound, bound_crossed, bound_percent] = timeToBoundary(r_x, r_
 %
 % ========================================================================%
 
-% Argument validation ----------------------------------------------------%
-
-% The first four arguments are required.
-if nargin < 4 
-    error('Please provide the CoP/CoM coordinates, dt, and boundary positions.');
+%% Validation
+arguments
+    r_x (:,1) double {mustBeNumeric, mustBeNonempty}
+    r_y (:,1) double {mustBeNumeric, mustBeNonempty}
+    dt (1,1) double {mustBePositive}
+    bounds (:,2) double {mustBeNumeric}
+    extrap_method (1,1) double {mustBeMember(extrap_method, [1, 2, 3])} = 2
 end
 
-% The default method is 2 = Slobounov
-if nargin == 4
-    extrap_method = 2;
+% Additional validation: r_x and r_y must be same length
+if length(r_x) ~= length(r_y)
+    error('r_x and r_y must have the same length.');
 end
 
-% Compute velocity and higher order derivatives --------------------------%
+% Additional validation: bounds must have at least 3 points
+if size(bounds, 1) < 3
+    error('bounds must have at least 3 boundary points to form a closed polygon.');
+end
+
+%% Compute derivatives
 
 % Velocity
 v_x = gradient(r_x, dt);
@@ -85,8 +92,7 @@ a_y = gradient(v_y, dt);
 j_x = gradient(a_x, dt);
 j_y = gradient(a_y, dt);
 
-% Define slope (s), coordinates (x_bound, y_bound), and polynomial 
-% coefficients (A, B, C, D) for each boundary. ---------------------------%
+%% Setup polynomial coefficients for each boundary
 
 % Length of the data
 n_samples = length(r_x);
@@ -94,14 +100,22 @@ n_samples = length(r_x);
 % Number of boundaries
 [n_boundaries, ~] = size(bounds);
 
-% Boundary slopes
-slope = nan(n_boundaries, 1);
+% Extract boundary coordinates
+x_bound = bounds(:, 1);
+y_bound = bounds(:, 2);
 
-% Boundary coordinates
-x_bound = nan(size(slope));
-y_bound = nan(size(slope));
+% Compute boundary slopes (vectorized)
+% Each boundary is defined as a line segment from the previous point to the current point.
+% For the first boundary, connect from the last point (closing the polygon).
+x_prev = [bounds(end, 1); bounds(1:end-1, 1)];
+y_prev = [bounds(end, 2); bounds(1:end-1, 2)];
 
-% Polynomial coefficients
+slope = (y_prev - y_bound) ./ (x_prev - x_bound);
+
+% Handle vertical boundaries (infinite slope)
+slope(isinf(slope)) = 1e16;
+
+% Preallocate polynomial coefficient cells
 coef_A = cell(n_boundaries, 1);
 coef_B = cell(n_boundaries, 1);
 coef_C = cell(n_boundaries, 1);
@@ -113,29 +127,8 @@ poly_coef = cell(n_boundaries, 1);
 % Roots matrix
 poly_roots = cell(n_boundaries, 1);
 
-% For each boundary
+% For each boundary, compute polynomial coefficients
 for i = 1:n_boundaries
-    
-    % Compute the boundary slope. For the first boundary, use the first
-    % and last boundary positions. For the other boundaries, use the current
-    % and previous boundary positions.
-    if i == 1
-        slope(i) = (bounds(n_boundaries, 2) - bounds(i, 2)) / (bounds(n_boundaries, 1) - bounds(i, 1));
-    else
-        slope(i) = (bounds(i-1, 2) - bounds(i, 2)) / (bounds(i-1, 1) - bounds(i, 1));
-    end
-
-    % If the boundary is vertical (i.e., slope is inf), set the slope to a
-    % large number. This should never be needed in practice because it is
-    % very unlikely that a boundary would be perfectly vertical.
-    if slope(i) == inf
-        slope(i) = 1e16;
-    end
-
-    % Assign boundary coordinates (x_bound, y_bound). Either of the points 
-    % used to define the boundary can be used.
-    x_bound(i) = bounds(i, 1);
-    y_bound(i) = bounds(i, 2);
     
     % Determine polynomial coefficients (A, B, C, D)
     coef_A{i} = (j_y - slope(i) .* j_x) ./ 3;
@@ -157,14 +150,13 @@ for i = 1:n_boundaries
     
 end
 
-% Create minimum TtB vector, boundary TtB matrix, boundary crossing vector,
-% and matrix for all boundary roots.
+%% Compute time-to-boundary
+
+% Preallocate output arrays
 ttb = zeros(n_samples, 1);
 ttb_bound = zeros(n_samples, n_boundaries);
 bound_crossed = zeros(n_samples, 1);
 all_roots = zeros(n_samples, n_boundaries * extrap_method);
-
-% Compute TtB ------------------------------------------------------------%
 
 % For each time point
 for t = 1:n_samples
@@ -174,7 +166,9 @@ for t = 1:n_samples
         
         % Find roots of polynomial and add to full matrix
         poly_roots{i}(t, :) = roots(poly_coef{i}(t, :))';
-        all_roots(t, (extrap_method*i-(extrap_method-1)):extrap_method*i) = poly_roots{i}(t, :);
+        root_start_idx = extrap_method * (i - 1) + 1;
+        root_end_idx = extrap_method * i;
+        all_roots(t, root_start_idx:root_end_idx) = poly_roots{i}(t, :);
         
         % Find real roots greater than or equal to 0
         idx_real_pos = find(poly_roots{i}(t, :) >= 0 & imag(poly_roots{i}(t, :)) == 0);
@@ -185,23 +179,20 @@ for t = 1:n_samples
         else
             ttb_bound(t, i) = min(poly_roots{i}(t, idx_real_pos));
         end
-               
-        % If TtB to all boundaries has been completed
-        if i == n_boundaries
-             
-            % Find real roots greater than or equal to 0
-            idx_real_pos = find(all_roots(t, :) >= 0 & imag(all_roots(t, :)) == 0);
-            
-            % Find minimum time-to-boundary from the positive real roots
-            [ttb(t), min_idx] = min(all_roots(t, idx_real_pos));
-            
-            % Identify the boundary that was crossed. Divides by the
-            % number of roots per boundary and increments to the next 
-            % integer to get the corresponding boundary number.
-            bound_crossed(t) = ceil(idx_real_pos(min_idx) / extrap_method);
-            
-        end
-    end    
+    end
+    
+    % Find overall minimum TtB across all boundaries for this time point
+    % Find real roots greater than or equal to 0
+    idx_real_pos = find(all_roots(t, :) >= 0 & imag(all_roots(t, :)) == 0);
+    
+    % Find minimum time-to-boundary from the positive real roots
+    [ttb(t), min_idx] = min(all_roots(t, idx_real_pos));
+    
+    % Identify the boundary that was crossed. Divides by the
+    % number of roots per boundary and increments to the next 
+    % integer to get the corresponding boundary number.
+    bound_crossed(t) = ceil(idx_real_pos(min_idx) / extrap_method);
+    
 end
 
 % Compute the percent of minimum time-to-boundary to each boundary
