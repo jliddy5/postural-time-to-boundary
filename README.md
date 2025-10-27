@@ -1,5 +1,7 @@
 # Postural Time-to-Boundary (TtB)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17460159.svg)](https://doi.org/10.5281/zenodo.17460159)
+
 A MATLAB toolbox for calculating time-to-boundary, a spatiotemporal measure of postural control that quantifies how close the center of pressure (CoP) or center of mass (CoM) trajectory is to the boundaries of the base of support.
 
 ## Overview
@@ -167,7 +169,7 @@ If you use this toolbox in your research, please cite:
 
 ```
 Liddy, J. (2025). Postural Time-to-Boundary MATLAB Toolbox (Version 2.0.0) [Software]. 
-https://doi.org/10.5281/zenodo.XXXXX
+https://doi.org/10.5281/zenodo.17460159
 ```
 
 **BibTeX:**
@@ -177,12 +179,10 @@ https://doi.org/10.5281/zenodo.XXXXX
   title        = {Postural Time-to-Boundary MATLAB Toolbox},
   year         = 2025,
   version      = {2.0.0},
-  doi          = {10.5281/zenodo.XXXXX},
+  doi          = {10.5281/zenodo.17460159},
   url          = {https://github.com/jliddy5/postural-time-to-boundary}
 }
 ```
-
-*Note: Replace XXXXX with the actual DOI after your first release.*
 
 ## References
 
