@@ -67,7 +67,7 @@ min_ttb = zeros(n_boundaries, 1);
 for i = 1:n_boundaries
     mean_ttb(i, 1) = mean(ttb_bound(:, i), 'omitnan');
     med_ttb(i, 1) = median(ttb_bound(ttb_bound(:, i) > 0, i), 'omitnan');
-    min_ttb(i, 1) = ttbMinimum(ttb_bound(:, i), n_min);
+    min_ttb(i, 1) = ttbMinN(ttb_bound(:, i), n_min);
 end
 
 %% Generate plots
